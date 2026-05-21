@@ -11,52 +11,62 @@ import { getUser } from './utils/auth.js';
 
 const PORT = process.env.PORT || 4000;
 
-// ── Connect MongoDB ───────────────────────────────────────────────────────
-await connectDB();
-
-// ── Create Apollo Server ──────────────────────────────────────────────────
-const server = new ApolloServer({
-  typeDefs,
-  resolvers,
-  // Shows helpful errors in development
-  includeStacktraceInErrorResponses: process.env.NODE_ENV !== 'production',
-  formatError: (error) => {
-    console.error('GraphQL Error:', error.message);
-    return {
-      message: error.message,
-      code: error.extensions?.code || 'INTERNAL_ERROR',
-    };
-  },
-});
-
-await server.start();
-
-// ── Express App ───────────────────────────────────────────────────────────
+// ── Create Express app FIRST so Railway health check works immediately ─────
 const app = express();
-
 app.use(cors());
 app.use(morgan('dev'));
 
-// ── Health check (useful for Railway) ────────────────────────────────────
+// ── Health check — Railway pings this to know app is alive ────────────────
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'MoodTunes GraphQL API', version: '1.0.0' });
 });
 
-// ── GraphQL endpoint ──────────────────────────────────────────────────────
-app.use(
-  '/graphql',
-  express.json(),
-  expressMiddleware(server, {
-    // This runs on every request — reads JWT token and adds user to context
-    context: async ({ req }) => {
-      const token = req.headers.authorization?.replace('Bearer ', '') || '';
-      const user  = token ? await getUser(token) : null;
-      return { user };
-    },
-  })
-);
-
+// ── Start Express server FIRST ────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`🎵 MoodTunes GraphQL API running at http://localhost:${PORT}/graphql`);
   console.log(`🚀 Apollo Studio: https://studio.apollographql.com/sandbox?endpoint=http://localhost:${PORT}/graphql`);
 });
+
+// ── Then connect MongoDB + start Apollo in background ─────────────────────
+async function initApollo() {
+  try {
+    // Connect to MongoDB
+    await connectDB();
+
+    // Create and start Apollo Server
+    const server = new ApolloServer({
+      typeDefs,
+      resolvers,
+      includeStacktraceInErrorResponses: process.env.NODE_ENV !== 'production',
+      formatError: (error) => {
+        console.error('GraphQL Error:', error.message);
+        return {
+          message: error.message,
+          code: error.extensions?.code || 'INTERNAL_ERROR',
+        };
+      },
+    });
+
+    await server.start();
+
+    // ── GraphQL endpoint ────────────────────────────────────────────────────
+    app.use(
+      '/graphql',
+      express.json(),
+      expressMiddleware(server, {
+        context: async ({ req }) => {
+          const token = req.headers.authorization?.replace('Bearer ', '') || '';
+          const user  = token ? await getUser(token) : null;
+          return { user };
+        },
+      })
+    );
+
+    console.log('✅ GraphQL endpoint ready at /graphql');
+  } catch (err) {
+    console.error('❌ Failed to initialize Apollo:', err.message);
+    // Don't crash — health check still works
+  }
+}
+
+initApollo();
