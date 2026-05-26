@@ -1,17 +1,19 @@
 import "dotenv/config";
 import express from "express";
-import cors from "cors";
-import morgan from "morgan";
-import { connectDB } from "./utils/database.js";
+import cors    from "cors";
+import morgan  from "morgan";
+import { connectDB } from "./config/database.js";
 
-// REST Routes
-import healthRouter          from "./routes/health.js";
-import authRouter            from "./routes/auth.js";
-import moodsRouter           from "./routes/moods.js";
-import genresRouter          from "./routes/genres.js";
-import recommendationsRouter from "./routes/recommendations.js";
-import historyRouter         from "./routes/history.js";
-import favouritesRouter      from "./routes/favourites.js";
+// Controllers
+import healthRouter          from "./controllers/health.js";
+import authRouter            from "./controllers/auth.js";
+import moodsRouter           from "./controllers/moods.js";
+import genresRouter          from "./controllers/genres.js";
+import recommendationsRouter from "./controllers/recommendations.js";
+import historyRouter         from "./controllers/history.js";
+import favouritesRouter      from "./controllers/favourites.js";
+import spotifyRouter         from "./controllers/spotify.js";
+import youtubeRouter         from "./controllers/youtube.js";
 
 const PORT = process.env.PORT || 4000;
 
@@ -28,6 +30,8 @@ app.use("/api/v1/genres",          genresRouter);
 app.use("/api/v1/recommendations", recommendationsRouter);
 app.use("/api/v1/history",         historyRouter);
 app.use("/api/v1/favourites",      favouritesRouter);
+app.use("/api/v1/spotify",         spotifyRouter);
+app.use("/api/v1/youtube",         youtubeRouter);
 
 // 404 handler
 app.use("/api", (req, res) => {
