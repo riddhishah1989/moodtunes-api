@@ -1,72 +1,46 @@
-import 'dotenv/config';
-import express from 'express';
-import cors from 'cors';
-import morgan from 'morgan';
-import { ApolloServer } from '@apollo/server';
-import { expressMiddleware } from '@apollo/server/express4';
-import { typeDefs } from './schema/typeDefs.js';
-import { resolvers } from './resolvers/index.js';
-import { connectDB } from './utils/database.js';
-import { getUser } from './utils/auth.js';
+import "dotenv/config";
+import express from "express";
+import cors from "cors";
+import morgan from "morgan";
+import { connectDB } from "./utils/database.js";
+
+// REST Routes
+import healthRouter          from "./routes/health.js";
+import authRouter            from "./routes/auth.js";
+import moodsRouter           from "./routes/moods.js";
+import genresRouter          from "./routes/genres.js";
+import recommendationsRouter from "./routes/recommendations.js";
+import historyRouter         from "./routes/history.js";
+import favouritesRouter      from "./routes/favourites.js";
 
 const PORT = process.env.PORT || 4000;
 
-// ── Create Express app FIRST so Railway health check works immediately ─────
 const app = express();
 app.use(cors());
-app.use(morgan('dev'));
+app.use(morgan("dev"));
+app.use(express.json({ limit: "10kb" }));
 
-// ── Health check — Railway pings this to know app is alive ────────────────
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', service: 'MoodTunes GraphQL API', version: '1.0.0' });
+// REST API Routes
+app.use("/api/v1/health",          healthRouter);
+app.use("/api/v1/auth",            authRouter);
+app.use("/api/v1/moods",           moodsRouter);
+app.use("/api/v1/genres",          genresRouter);
+app.use("/api/v1/recommendations", recommendationsRouter);
+app.use("/api/v1/history",         historyRouter);
+app.use("/api/v1/favourites",      favouritesRouter);
+
+// 404 handler
+app.use("/api", (req, res) => {
+  res.status(404).json({ success: false, error: `Route ${req.originalUrl} not found` });
 });
 
-// ── Start Express server FIRST ────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`🎵 MoodTunes GraphQL API running at http://localhost:${PORT}/graphql`);
-  console.log(`🚀 Apollo Studio: https://studio.apollographql.com/sandbox?endpoint=http://localhost:${PORT}/graphql`);
+// Connect DB then start server
+connectDB().then(() => {
+  app.listen(PORT, () => {
+    console.log(`🎵 MoodTunes REST API running on port ${PORT}`);
+    console.log(`Health: http://localhost:${PORT}/api/v1/health`);
+  });
+}).catch((err) => {
+  console.error("❌ Failed to connect to MongoDB:", err.message);
+  process.exit(1);
 });
-
-// ── Then connect MongoDB + start Apollo in background ─────────────────────
-async function initApollo() {
-  try {
-    // Connect to MongoDB
-    await connectDB();
-
-    // Create and start Apollo Server
-    const server = new ApolloServer({
-      typeDefs,
-      resolvers,
-      includeStacktraceInErrorResponses: process.env.NODE_ENV !== 'production',
-      formatError: (error) => {
-        console.error('GraphQL Error:', error.message);
-        return {
-          message: error.message,
-          code: error.extensions?.code || 'INTERNAL_ERROR',
-        };
-      },
-    });
-
-    await server.start();
-
-    // ── GraphQL endpoint ────────────────────────────────────────────────────
-    app.use(
-      '/graphql',
-      express.json(),
-      expressMiddleware(server, {
-        context: async ({ req }) => {
-          const token = req.headers.authorization?.replace('Bearer ', '') || '';
-          const user  = token ? await getUser(token) : null;
-          return { user };
-        },
-      })
-    );
-
-    console.log('✅ GraphQL endpoint ready at /graphql');
-  } catch (err) {
-    console.error('❌ Failed to initialize Apollo:', err.message);
-    // Don't crash — health check still works
-  }
-}
-
-initApollo();

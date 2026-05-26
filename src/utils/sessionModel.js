@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const songSchema = new mongoose.Schema({
   title: String,
@@ -7,8 +7,8 @@ const songSchema = new mongoose.Schema({
   genre: String,
   year: Number,
   reason: String,
-  energyLevel: { type: String, enum: ['LOW', 'MEDIUM', 'HIGH'] },
-  tempo: { type: String, enum: ['SLOW', 'MODERATE', 'FAST'] },
+  energyLevel: { type: String, enum: ["LOW", "MEDIUM", "HIGH"] },
+  tempo: { type: String, enum: ["SLOW", "MODERATE", "FAST"] },
   spotifyUrl: String,
   spotifyPreviewUrl: String,
   albumArt: String,
@@ -21,13 +21,17 @@ const songSchema = new mongoose.Schema({
 
 const sessionSchema = new mongoose.Schema(
   {
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
     mood: { type: String, required: true },
     customText: String,
     moodInterpretation: String,
     songs: [songSchema],
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-export const Session = mongoose.model('Session', sessionSchema);
+export const Session = mongoose.model("Session", sessionSchema);
