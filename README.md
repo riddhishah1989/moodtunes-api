@@ -304,7 +304,7 @@ Example valid password: `MoodTunes@1`
 git init
 git add .
 git commit -m "Initial commit - MoodTunes API"
-git remote add origin https://github.com/YOUR_USERNAME/moodtunes-graphql-api.git
+git remote add origin git clone https://github.com/riddhishah1989/moodtunes-api
 git push -u origin master
 ```
 
