@@ -1,11 +1,21 @@
 import mongoose from "mongoose";
-import bcrypt    from "bcryptjs";
-import { GENDER_OPTIONS, PASSWORD_REGEX, PASSWORD_ERROR } from "../config/constants.js";
+import bcrypt from "bcryptjs";
+import {
+  GENDER_OPTIONS,
+  PASSWORD_REGEX,
+  PASSWORD_ERROR,
+} from "../config/constants.js";
 
 const userSchema = new mongoose.Schema(
   {
-    name:  { type: String, required: true, trim: true },
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    name: { type: String, required: true, trim: true },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
     password: {
       type: String,
       required: true,
@@ -15,16 +25,19 @@ const userSchema = new mongoose.Schema(
         message: PASSWORD_ERROR,
       },
     },
-    profilePicture:  { type: String,   default: null },
-    birthDay:        { type: Number,   min: 1, max: 31, default: null },
-    birthMonth:      { type: Number,   min: 1, max: 12, default: null },
-    gender:          { type: String,   enum: GENDER_OPTIONS, default: null },
-    country:         { type: String,   default: null },
+    profilePicture: { type: String, default: null },
+    birthDay: { type: Number, min: 1, max: 31, default: null },
+    birthMonth: { type: Number, min: 1, max: 12, default: null },
+    gender: { type: String, enum: GENDER_OPTIONS, default: null },
+    country: { type: String, default: null },
     preferredGenres: [{ type: mongoose.Schema.Types.ObjectId, ref: "Genre" }],
-    isVerified:      { type: Boolean,  default: false },
-    lastLogin:       { type: Date,     default: null },
+    otpCode: { type: String, default: null }, // hashed 4-digit OTP
+    otpExpiry: { type: Date, default: null }, // expiry time
+    otpVerified: { type: Boolean, default: false }, // true after verify
+    isVerified: { type: Boolean, default: false },
+    lastLogin: { type: Date, default: null },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 userSchema.pre("save", async function (next) {
