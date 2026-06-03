@@ -15,9 +15,7 @@ const router = express.Router();
 
 // ── Helpers ───────────────────────────────────────────────────
 const generateOTP = () => Math.floor(1000 + Math.random() * 9000).toString();
-
 const hashOTP = (otp) => bcrypt.hash(otp, 10);
-
 const verifyOTPCode = (otp, hashedOTP) => bcrypt.compare(otp, hashedOTP);
 
 function formatUser(user) {
@@ -59,15 +57,12 @@ router.post("/signup", async (req, res) => {
           success: false,
           error: "Name, email and password are required.",
         });
-
     if (!PASSWORD_REGEX.test(password))
       return res.status(400).json({ success: false, error: PASSWORD_ERROR });
-
     if (birthDay !== null && (birthDay < 1 || birthDay > 31))
       return res
         .status(400)
         .json({ success: false, error: "birthDay must be between 1 and 31." });
-
     if (birthMonth !== null && (birthMonth < 1 || birthMonth > 12))
       return res
         .status(400)
@@ -190,7 +185,6 @@ router.put("/profile", authMiddleware, async (req, res) => {
     if (country !== undefined) updates.country = country;
     if (preferredGenres !== undefined)
       updates.preferredGenres = preferredGenres;
-
     if (birthDay !== undefined) {
       if (birthDay !== null && (birthDay < 1 || birthDay > 31))
         return res
@@ -211,7 +205,6 @@ router.put("/profile", authMiddleware, async (req, res) => {
           });
       updates.birthMonth = birthMonth;
     }
-
     if (Object.keys(updates).length === 0)
       return res
         .status(400)
@@ -261,9 +254,12 @@ router.put("/password", authMiddleware, async (req, res) => {
 
     const hashed = await bcrypt.hash(new_password, 12);
     await userRepository.updatePassword(req.user._id, hashed);
-    res
-      .status(200)
-      .json({ success: true, message: "Password changed successfully." });
+
+    // ✅ Fixed — wrapped in data: {}
+    res.status(200).json({
+      success: true,
+      data: { message: "Password changed successfully." },
+    });
   } catch (err) {
     console.error("Change password error:", err.message);
     res.status(500).json({ success: false, error: "Something went wrong." });
@@ -295,12 +291,11 @@ router.delete("/account", authMiddleware, async (req, res) => {
       userRepository.deleteById(req.user._id),
     ]);
 
-    res
-      .status(200)
-      .json({
-        success: true,
-        message: "Account and all data deleted successfully.",
-      });
+    // ✅ Fixed — wrapped in data: {}
+    res.status(200).json({
+      success: true,
+      data: { message: "Account and all data deleted successfully." },
+    });
   } catch (err) {
     console.error("Delete account error:", err.message);
     res.status(500).json({ success: false, error: "Something went wrong." });
@@ -317,14 +312,16 @@ router.post("/forgot-password", async (req, res) => {
         .json({ success: false, error: "Email is required." });
 
     const user = await userRepository.findByEmail(email.toLowerCase().trim());
+
+    // ✅ Fixed — security response wrapped in data: {}
     if (!user)
-      return res
-        .status(200)
-        .json({
-          success: true,
+      return res.status(200).json({
+        success: true,
+        data: {
           message:
             "If this email is registered, you will receive an OTP shortly.",
-        });
+        },
+      });
 
     const otp = generateOTP();
     const hashedOTP = await hashOTP(otp);
@@ -333,10 +330,14 @@ router.post("/forgot-password", async (req, res) => {
     await userRepository.saveOTP(user._id, hashedOTP, expiry);
     await sendOTPEmail(email, otp, user.name);
 
+    // ✅ Fixed — wrapped in data: {}
     return res.status(200).json({
       success: true,
-      message: "If this email is registered, you will receive an OTP shortly.",
-      ...(process.env.NODE_ENV === "development" && { devOtp: otp }),
+      data: {
+        message:
+          "If this email is registered, you will receive an OTP shortly.",
+        ...(process.env.NODE_ENV === "development" && { devOtp: otp }),
+      },
     });
   } catch (err) {
     console.error("forgotPassword error:", err);
@@ -394,10 +395,14 @@ router.post("/verify-otp", async (req, res) => {
         });
 
     await userRepository.markOTPVerified(user._id);
+
+    // ✅ Fixed — message + email both inside data: {}
     return res.status(200).json({
       success: true,
-      message: "OTP verified successfully.",
-      data: { email: user.email },
+      data: {
+        email: user.email,
+        message: "OTP verified successfully.",
+      },
     });
   } catch (err) {
     console.error("verifyOTP error:", err);
@@ -420,25 +425,25 @@ router.post("/resend-otp", async (req, res) => {
         .json({ success: false, error: "Email is required." });
 
     const user = await userRepository.findByEmail(email.toLowerCase().trim());
+
+    // ✅ Fixed — security response wrapped in data: {}
     if (!user)
-      return res
-        .status(200)
-        .json({
-          success: true,
+      return res.status(200).json({
+        success: true,
+        data: {
           message: "If this email is registered, a new OTP will be sent.",
-        });
+        },
+      });
 
     if (user.otpExpiry) {
       const otpCreatedAt = new Date(user.otpExpiry).getTime() - 15 * 60 * 1000;
       const secondsPassed = (Date.now() - otpCreatedAt) / 1000;
       if (secondsPassed < 60) {
         const waitSeconds = Math.ceil(60 - secondsPassed);
-        return res
-          .status(429)
-          .json({
-            success: false,
-            error: `Please wait ${waitSeconds} seconds before requesting a new OTP.`,
-          });
+        return res.status(429).json({
+          success: false,
+          error: `Please wait ${waitSeconds} seconds before requesting a new OTP.`,
+        });
       }
     }
 
@@ -449,10 +454,13 @@ router.post("/resend-otp", async (req, res) => {
     await userRepository.saveOTP(user._id, hashedOTP, expiry);
     await sendOTPEmail(email, otp, user.name);
 
+    // ✅ Fixed — wrapped in data: {}
     return res.status(200).json({
       success: true,
-      message: "A new OTP has been sent to your email.",
-      ...(process.env.NODE_ENV === "development" && { devOtp: otp }),
+      data: {
+        message: "A new OTP has been sent to your email.",
+        ...(process.env.NODE_ENV === "development" && { devOtp: otp }),
+      },
     });
   } catch (err) {
     console.error("resendOTP error:", err);
@@ -506,12 +514,12 @@ router.post("/reset-password", async (req, res) => {
     }
 
     await userRepository.resetPassword(user._id, newPassword);
-    return res
-      .status(200)
-      .json({
-        success: true,
-        message: "Password reset successfully. You can now sign in.",
-      });
+
+    // ✅ Fixed — wrapped in data: {}
+    return res.status(200).json({
+      success: true,
+      data: { message: "Password reset successfully. You can now sign in." },
+    });
   } catch (err) {
     console.error("resetPassword error:", err);
     res
