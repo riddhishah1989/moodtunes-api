@@ -1,7 +1,5 @@
 import { User } from "../models/userModel.js";
 
-import { User } from "../models/userModel.js";
-
 export const userRepository = {
   findByEmail: (email) => User.findOne({ email: email.toLowerCase() }),
 
