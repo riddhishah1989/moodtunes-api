@@ -269,36 +269,63 @@ router.put("/password", authMiddleware, async (req, res) => {
 // ── DELETE /api/v1/auth/account ───────────────────────────────
 router.delete("/account", authMiddleware, async (req, res) => {
   try {
-    const { password } = req.body;
-    if (!password)
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: "Password is required to delete your account.",
-        });
+    const { email, password, permanent = false } = req.body;
 
-    const user = await userRepository.findByIdWithPassword(req.user._id);
+    // ── Validate ──────────────────────────────────────
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        error: "Email and password are required.",
+      });
+    }
+
+    // ── Verify email matches logged in user ───────────
+    if (email.toLowerCase() !== req.user.email.toLowerCase()) {
+      return res.status(400).json({
+        success: false,
+        error: "Email does not match your account.",
+      });
+    }
+
+    // ── Verify password ───────────────────────────────
+    const user  = await userRepository.findByIdWithPassword(req.user._id);
     const valid = await user.comparePassword(password);
-    if (!valid)
-      return res
-        .status(401)
-        .json({ success: false, error: "Incorrect password." });
+    if (!valid) {
+      return res.status(401).json({
+        success: false,
+        error: "Incorrect password.",
+      });
+    }
 
-    await Promise.all([
-      sessionRepository.deleteAllByUser(req.user._id),
-      favouriteRepository.deleteAllByUser(req.user._id),
-      userRepository.deleteById(req.user._id),
-    ]);
+    if (permanent) {
+      // ── Hard delete — remove everything ───────────
+      await Promise.all([
+        favouriteRepository.deleteAllByUser(req.user._id),
+        journalRepository.deleteAllByUser(req.user._id),
+        userRepository.deleteById(req.user._id),
+      ]);
 
-    // ✅ Fixed — wrapped in data: {}
-    res.status(200).json({
-      success: true,
-      data: { message: "Account and all data deleted successfully." },
-    });
+      return res.status(200).json({
+        success: true,
+        data: { message: "Account permanently deleted." },
+      });
+
+    } else {
+      // ── Soft delete — deactivate ───────────────────
+      await userRepository.deactivateAccount(req.user._id);
+
+      return res.status(200).json({
+        success: true,
+        data: { message: "Account deactivated successfully." },
+      });
+    }
+
   } catch (err) {
     console.error("Delete account error:", err.message);
-    res.status(500).json({ success: false, error: "Something went wrong." });
+    res.status(500).json({
+      success: false,
+      error: "Something went wrong.",
+    });
   }
 });
 
